@@ -4,7 +4,39 @@ const path = require("path");
 const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 9000;
+const DATA_DIR = path.join(__dirname, "data");
+const NOTES_FILE = path.join(DATA_DIR, "notes.json");
+/** Allowed browser origin for GitHub Pages → API calls. Default *; set e.g. https://yourname.github.io for stricter security. */
+const CORS_ORIGIN = process.env.BILLBOARD_CORS_ORIGIN || "*";
+
 let notes = [];
+
+function loadNotes() {
+  try {
+    if (fs.existsSync(NOTES_FILE)) {
+      const raw = fs.readFileSync(NOTES_FILE, "utf8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        notes = parsed;
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn("loadNotes:", e.message);
+  }
+  notes = [];
+}
+
+function saveNotes() {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(NOTES_FILE, JSON.stringify(notes), "utf8");
+  } catch (e) {
+    console.error("saveNotes:", e.message);
+  }
+}
+
+loadNotes();
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -13,6 +45,7 @@ const MIME = {
   ".ico": "image/x-icon",
   ".png": "image/png",
   ".json": "application/json",
+  ".woff2": "font/woff2",
 };
 
 function safeJoin(urlPath) {
@@ -21,6 +54,13 @@ function safeJoin(urlPath) {
   const full = path.join(__dirname, relative);
   if (!full.startsWith(__dirname)) return null;
   return full;
+}
+
+function corsHeaders(res) {
+  res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
+  if (CORS_ORIGIN !== "*") res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
 function broadcast(message) {
@@ -36,6 +76,7 @@ function applyClientMessage(msg) {
     const exists = notes.some((n) => n.id === msg.note.id);
     if (!exists) {
       notes.push(msg.note);
+      saveNotes();
       broadcast({ type: "addNote", note: msg.note });
     }
     return;
@@ -44,6 +85,7 @@ function applyClientMessage(msg) {
     const n = notes.find((x) => x.id === msg.id);
     if (n) {
       n.text = typeof msg.text === "string" ? msg.text : "";
+      saveNotes();
       broadcast({ type: "updateNote", id: msg.id, text: n.text });
     }
   }
@@ -57,7 +99,15 @@ const server = http.createServer((req, res) => {
 
   const urlPath = (req.url || "/").split("?")[0];
 
+  if (req.method === "OPTIONS" && (urlPath === "/api/state" || urlPath === "/api/message")) {
+    corsHeaders(res);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   if (req.method === "GET" && urlPath === "/api/state") {
+    corsHeaders(res);
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ notes }));
     return;
@@ -76,6 +126,7 @@ const server = http.createServer((req, res) => {
       } catch {
         /* ignore */
       }
+      corsHeaders(res);
       res.writeHead(204);
       res.end();
     });

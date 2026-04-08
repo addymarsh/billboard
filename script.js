@@ -5,6 +5,32 @@
   const board = document.getElementById("board");
   const stickySource = document.getElementById("sticky-source");
 
+  /**
+   * GitHub Pages (or any static host): set window.BILLBOARD_API_ORIGIN to your deployed Node server,
+   * e.g. "https://your-app.onrender.com" — no trailing slash. Empty = same host as the page (local dev).
+   */
+  function apiOrigin() {
+    const o = typeof window.BILLBOARD_API_ORIGIN === "string" ? window.BILLBOARD_API_ORIGIN.trim() : "";
+    return o.replace(/\/$/, "");
+  }
+
+  function apiUrl(pathname) {
+    const base = apiOrigin();
+    if (!base) return pathname;
+    return base + pathname;
+  }
+
+  function wsEndpoint() {
+    const base = apiOrigin();
+    if (base) {
+      const u = new URL(base);
+      const wsProto = u.protocol === "https:" ? "wss:" : "ws:";
+      return `${wsProto}//${u.host}`;
+    }
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${location.host}`;
+  }
+
   const notesById = new Map();
   let ws;
   let reconnectTimer;
@@ -57,7 +83,7 @@
       ws.send(JSON.stringify(payload));
       return;
     }
-    fetch("/api/message", {
+    fetch(apiUrl("/api/message"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -75,7 +101,7 @@
     if (pollTimer) return;
     async function poll() {
       try {
-        const r = await fetch("/api/state");
+        const r = await fetch(apiUrl("/api/state"));
         if (!r.ok) return;
         const data = await r.json();
         if (Array.isArray(data.notes)) {
@@ -160,8 +186,7 @@
 
   function connect() {
     wsOpenedThisAttempt = false;
-    const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    ws = new WebSocket(`${proto}//${location.host}`);
+    ws = new WebSocket(wsEndpoint());
 
     ws.addEventListener("open", () => {
       wsOpenedThisAttempt = true;
