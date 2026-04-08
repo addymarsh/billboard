@@ -1,3 +1,11 @@
+@font-face {
+    font-family: "TayKula";
+    src: url("fonts/TAYKula.woff2") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 .board {
     height: 95vh;
     width: 97vw;
@@ -36,7 +44,7 @@
 
 .sticky-source-hint {
     color: rgba(0, 0, 0, 0.65);
-    font-family: system-ui, sans-serif;
+    font-family: "TayKula", system-ui, sans-serif;
     font-size: 14px;
     font-weight: 600;
     text-align: center;
@@ -67,9 +75,9 @@
     min-height: 160px;
     resize: vertical;
     border: none;
-    background: rgba(255, 255, 255, 0.92);
+    background: transparent;
     color: #222;
-    font-family: system-ui, sans-serif;
+    font-family: "TayKula", system-ui, sans-serif;
     font-size: 14px;
     line-height: 1.4;
     box-sizing: border-box;
